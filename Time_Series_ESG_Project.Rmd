@@ -1,0 +1,140 @@
+---
+title: "ESG vs Conventional Indices: Time Series Analysis"
+author: "Alison Barnard and Anya Low"
+date: "2026"
+output: pdf_document
+---
+# Introduction 
+
+## Research Questions
+
+# Data Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r install-packages, eval=FALSE}
+install.packages("quantmod")
+install.packages("zoo")
+install.packages("xts")
+install.packages("ggplot2")
+```
+
+```{r libraries}
+library(quantmod)
+library(zoo)
+library(xts)
+library(ggplot2)
+```
+
+```{r parameters}
+start_date <- "2020-01-01"
+end_date   <- "2024-12-31"
+```
+
+We created the date parameters for data retrieval from the Yahoo website, which can interact with R through "quantmod" package.
+
+```{r pull-equity-data}
+getSymbols("ESGU",    from = start_date, to = end_date, src = "yahoo")
+getSymbols("^GSPC",   from = start_date, to = end_date, src = "yahoo")
+getSymbols("IWDA.AS", from = start_date, to = end_date, src = "yahoo")
+getSymbols("SUWS.L",  from = start_date, to = end_date, src = "yahoo")
+```
+
+```{r pull-rate-data}
+getSymbols("DGS10", src = "FRED", from = start_date, to = end_date)
+```
+
+```{r extract-prices}
+esgu <- Ad(ESGU)
+gspc <- Ad(GSPC)
+iwda <- Ad(IWDA.AS)
+suws <- Ad(SUWS.L)
+rate <- DGS10
+```
+
+```{r check-data, include=FALSE}
+head(esgu)
+head(gspc)
+head(iwda)
+head(suws)
+head(rate)
+```
+
+# Data Overview
+
+The dataset comprises five daily time series covering the period from 2 January 2020 to 31 December 2024, yielding 1,304 trading day observations after cleaning. Two pairs of ESG and conventional indices are used: ESGU vs. S&P 500 (^GSPC) for the US market, and SUWS.L vs. IWDA.AS for the global market. The 10-year US Treasury yield (DGS10) is included as a proxy for the interest rate environment.
+
+All equity series begin on 2 January 2020, the first trading day of the year, as global financial markets are universally closed on 1 January. The interest rate series from FRED begins on 1 January 2020 but carries a missing value for that date for the same reason, which is resolved in the cleaning step below.
+
+The series are denominated in different currencies and price scales — for example, GSPC trades around 3,000–5,000 points while SUWS.L trades around 5–8 GBP. This is expected and does not affect the analysis, as all subsequent calculations are based on log returns rather than price levels.
+
+# Data Cleaning 
+
+```{r merge-and-rename}
+all_data <- merge(esgu, gspc, iwda, suws, rate)
+colnames(all_data) <- c("ESGU", "GSPC", "IWDA", "SUWS", "Rate_10Y")
+```
+
+```{r check-nas, include=FALSE}
+colSums(is.na(all_data))
+```
+
+The numbers listed here show how many missing values exist in each series before cleaning. This is due to different trading calendars between the U.S. and European markets, which we will handle in further steps.
+
+```{r clean-data}
+all_data <- na.locf(all_data)
+all_data <- na.omit(all_data)
+```
+
+```{r check-quality, include=FALSE}
+colSums(all_data <= 0, na.rm = TRUE)
+index(all_data)[1]
+index(all_data)[nrow(all_data)]
+nrow(all_data)
+```
+We changed the first trading day to 02.01.2020 since major financial markets are closed on 1 January as it is a public holiday globally. 
+
+The 1304 number indicates 1304 trading days in the dataset, rought 5 years of daily data (there are about 260 trading days per year). 
+
+```{r compute-returns}
+log_returns <- diff(log(all_data))
+log_returns <- na.omit(log_returns)
+rate_diff   <- diff(all_data$Rate_10Y)
+rate_diff   <- na.omit(rate_diff)
+```
+
+```{r visual-check, include=FALSE}
+plot(all_data)
+plot(log_returns)
+```
+
+```{r save-data}
+dir.create("data", showWarnings = FALSE)
+write.csv(as.data.frame(all_data),    "data/prices.csv",      row.names = TRUE)
+write.csv(as.data.frame(log_returns), "data/log_returns.csv", row.names = TRUE)
+write.csv(as.data.frame(rate_diff),   "data/rate_diff.csv",   row.names = TRUE)
+cat("Data saved successfully to /data folder\n")
+```
+
+Our dataset is saved in CSV format to the "data" folder in our project folder.
+
+```{r descriptive-analysis}
+# Descriptive analysis code goes here
+```
+
+```{r stationarity}
+# ADF tests go here
+```
+
+```{r volatility}
+# GARCH models go here
+```
+
+```{r var-model}
+# VAR model goes here
+```
+
+```{r regime-analysis}
+# Pre/post 2022 comparison goes here
+```
