@@ -37,3 +37,41 @@ Observation period: 2 January 2020 to 31 December 2024 (1,304 trading days)
 ---
 
 ## Repository Structure
+
+TSA_Finance/
+│
+├── data/
+│   ├── prices.csv          # Cleaned daily adjusted closing prices
+│   ├── log_returns.csv     # Daily log returns for all series
+│   └── rate_diff.csv       # First difference of 10Y Treasury yield
+│
+├── Time_Series_ESG_Project.Rmd   # Main analysis file
+└── README.md
+
+---
+
+## How to Run
+
+1. Open `Time_Series_ESG_Project.Rmd` in RStudio
+2. On first run, execute the `install-packages` chunk manually
+3. Run all chunks in order — data is pulled via API and saved to `/data`
+4. On subsequent runs, data loads from the saved CSVs (no internet needed)
+
+---
+
+## Branch Structure
+
+- `main` — final merged version
+- `alison` — Alison's working branch (descriptive analysis, regime analysis)
+- `anya` — Anya's working branch (stationarity, GARCH, VAR model)
+
+---
+
+## Methods
+
+- Descriptive analysis (log returns, rolling volatility, summary statistics)
+- Stationarity testing (Augmented Dickey-Fuller)
+- Autocorrelation analysis (ACF, PACF)
+- Volatility modelling (GARCH(1,1))
+- Regime analysis (pre/post 2022 subsamples)
+- Multivariate modelling (VAR, Granger causality)
