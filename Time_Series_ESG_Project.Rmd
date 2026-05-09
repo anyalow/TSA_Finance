@@ -5,6 +5,7 @@ date: "2026"
 output:
   pdf_document:
     latex_engine: xelatex
+    extra_dependencies: ["float"]
 ---
 
 ```{r cover-image, echo=FALSE, out.width="100%"}
@@ -36,8 +37,6 @@ pairs — one US and one global — over the period January 2020 to December
 analysis, stationarity testing, autocorrelation analysis, GARCH volatility 
 modelling, and regime analysis across pre- and post-2022 subsamples.
 
----
-
 ## 2. Literature Review
 
 Research on the financial performance of ESG investments relative to 
@@ -58,7 +57,6 @@ Albuquerque et al.(2020) further showed that stocks with higher environmental
 and social ratings exhibited significantly higher returns and lower volatility 
 during the COVID-19 market crash of Q1 2020, suggesting that ESG 
 screening may confer resilience during periods of acute market stress.
-
 Albuquerque et al. (2020) attribute this resilience to stronger customer 
 and investor loyalty among ESG firms, which dampens both revenue 
 volatility and selling pressure during market stress.
@@ -72,8 +70,6 @@ structural tilt suggests that rising interest rates — which historically
 favour value over growth — may systematically disadvantage ESG indices 
 relative to conventional benchmarks, a hypothesis we test empirically 
 in this paper.
-
----
 
 ## 3. Research Question and Hypotheses
 
@@ -92,18 +88,18 @@ conventional indices.
 
 **H3:** The relationship between ESG and conventional indices differs
 between the pre-2022 and post-2022 subsamples.
----
+
 ## 4. Data and Methodology
 
 # 4.1 Data Setup
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      fig.pos = "H")
 ```
 
 ```{r install-packages, eval=FALSE}
 install.packages("quantmod")
-library(quantmod)
-getSymbols("DGS10", src = "FRED", from = start_date, to = end_date)library(quantmod)
 install.packages("zoo")
 install.packages("xts")
 install.packages("ggplot2")
@@ -113,6 +109,9 @@ install.packages("kableExtra")
 install.packages("dplyr")
 install.packages("rugarch")
 install.packages("vars")
+install.packages("urca")
+install.packages("tseries")
+install.packages("bookdown")
 ```
 
 ```{r libraries}
@@ -133,7 +132,7 @@ end_date   <- "2024-12-31"
 
 We created the date parameters for data retrieval from the Yahoo website, which can interact with R through "quantmod" package.
 
-```{r pull-equity-data}
+```{r pull-equity-data, results='hide'}
 getSymbols("ESGU",    from = start_date, to = end_date, src = "yahoo")
 getSymbols("^GSPC",   from = start_date, to = end_date, src = "yahoo")
 getSymbols("IWDA.AS", from = start_date, to = end_date, src = "yahoo")
@@ -157,14 +156,6 @@ gspc <- Ad(GSPC)
 iwda <- Ad(IWDA.AS)
 suws <- Ad(SUWS.L)
 rate <- DGS10
-```
-
-```{r check-data, include=FALSE}
-head(esgu)
-head(gspc)
-head(iwda)
-head(suws)
-head(rate)
 ```
 
 ### 4.2 Data Sources and Collection
@@ -268,7 +259,7 @@ The table below presents key distributional statistics for the log
 return series of all four equity indices over the full sample period 
 from January 2020 to December 2024.
 
-```{r descriptive-stats}
+```{r descriptive-stats, echo=FALSE, fig.align="center"}
 library(moments)
 
 desc_stats <- data.frame(
@@ -304,7 +295,7 @@ the COVID-19 shock in 2020 and the rate hiking cycle beginning in 2022.
 
 #### 5.1.2 Price Level Visualisation
 
-```{r price-plot}
+````{r price-plot, echo=FALSE, fig.align="center"}
 library(ggplot2)
 library(reshape2)
 
@@ -333,11 +324,20 @@ ggplot(prices_long, aes(x = Date, y = Price, colour = Series)) +
   labs(title = "Normalised Price Series (Base = 100, January 2020)",
        x = "Date", y = "Indexed Price") +
   theme_minimal()
-```
+````
+
+The normalised price chart shows that all four indices broadly tracked 
+each other over the full sample period, with the US pair (ESGU and GSPC) 
+moving almost identically throughout. The global pair shows slightly more 
+divergence, particularly in the post-2022 period where SUWS lagged behind 
+IWDA. All four series experienced a sharp drawdown in early 2020 
+coinciding with the COVID-19 market shock, followed by a strong recovery 
+through 2021, before a period of consolidation and renewed growth from 
+2023 onwards.
 
 #### 5.1.3 Log Returns Visualisation
 
-```{r returns-plot}
+```{r returns-plot, echo=FALSE, fig.align="center"}
 returns_df <- data.frame(
   Date = index(log_returns),
   ESGU = as.numeric(log_returns$ESGU),
@@ -357,14 +357,12 @@ ggplot(returns_long, aes(x = Date, y = Return, colour = Series)) +
        x = "Date", y = "Log Return") +
   theme_minimal()
 ```
-Figure \@ref(fig:returns-plot) plots the daily log returns for all 
-four indices over the full sample period. The most prominent feature is the
-sharp clustering of large positive and negative returns in early 2020,
-coinciding with the onset of the COVID-19 pandemic. Returns during this period
-reach magnitudes of  approximately ±10%, far exceeding typical daily variation.
-This volatility cluster dissipates over the course of 2020 and returns remain
-relatively 
-subdued through 2021.
+The figure above plots the daily log returns for allfour indices over the full
+sample period.The most prominent feature is the sharp clustering of large
+positive and negative returns in early 2020, coinciding with the onset of the
+COVID-19 pandemic. Returns during this period reach magnitudes of  approximately
+±10%, far exceeding typical daily variation. This volatility cluster dissipates
+over the course of 2020 and returns remain relatively subdued through 2021.
 
 Following the onset of the rate-hiking cycle in early 2022 (dashed vertical 
 line), a modest but visible increase in return variability is observed across 
@@ -380,7 +378,7 @@ Rolling volatility measures how the riskiness of each series changes
 over time. We compute a 30-day rolling standard deviation of log returns 
 for each series to visualise volatility clustering across the sample period.
 
-```{r rolling-volatility}
+```{r rolling-volatility, echo=FALSE, fig.align="center"}
 library(zoo)
 
 roll_vol <- data.frame(
@@ -423,7 +421,7 @@ is stationary.
 #### 5.2.1 ADF Test on Price Levels
 
 
-```{r stationarity-levels, echo=FALSE, message=FALSE, warning=FALSE}
+```{r stationarity-levels, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(tseries)
 library(knitr)
 library(kableExtra)
@@ -464,7 +462,7 @@ models and must transform the series before proceeding.
 
 #### 5.2.2 ADF Test on Log Returns
 
-```{r stationarity-returns, echo=FALSE, message=FALSE, warning=FALSE}
+```{r stationarity-returns, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(tseries)
 library(knitr)
 library(kableExtra)
@@ -494,7 +492,7 @@ the rate is already expressed as a percentage.
 
 #### 5.2.3 Summary of Stationarity Results
 
-```{r stationarity-summary}
+```{r stationarity-summary, echo=FALSE, fig.align="center"}
 stationarity_summary <- data.frame(
   Series = c("ESGU (price)", "GSPC (price)", "IWDA (price)", 
              "SUWS (price)", "Rate 10Y (level)",
@@ -521,11 +519,20 @@ knitr::kable(stationarity_summary,
   row_spec(5, extra_latex_after = "\\midrule")
 ```
 
+The results confirm a clear pattern: all price level series are 
+non-stationary, while all log return series are stationary. This is 
+the expected finding for financial time series and validates our 
+choice to work with log returns rather than price levels in all 
+subsequent modelling steps. The interest rate series similarly 
+requires first differencing to achieve stationarity, which is why 
+we use the daily change in the 10-year yield rather than the yield 
+level itself throughout the analysis.
+
 #### 5.2.4 Cointegration Testing
 
 The Johansen trace test is applied to each ESG-conventional pair to determine whether the price level series are cointegrated — that is, whether they share a stable long-run equilibrium relationship. If cointegration is confirmed, a Vector Error Correction Model (VECM) is used in place of a standard VAR, as it captures both the short-run dynamics and the long-run adjustment back toward equilibrium. If no cointegration is found, a standard VAR on stationary log returns is the appropriate specification.
 
-```{r cointegration-test, echo=FALSE, message=FALSE, warning=FALSE}
+```{r cointegration-test, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(urca)
 library(knitr)
 library(kableExtra)
@@ -563,11 +570,27 @@ kable(coint_table, booktabs = TRUE, align = "lrrr",
   kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
   column_spec(1, bold = TRUE) |>
   column_spec(4, bold = TRUE) |>
-  footnote(general = "H0: no cointegrating relationship. Trace statistic exceeding the 5% critical value indicates cointegration. Model selection in Section 5.5 follows from these results.",
+  footnote(general = "H0: no cointegration. Trace statistic above 5% critical value indicates cointegration.",
            general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
 
-The Johansen test results determine the modelling approach in Section 5.5. Where cointegration is confirmed, a VECM is estimated to capture the long-run equilibrium between the ESG and conventional price series. Where no cointegration is found, a standard VAR on log returns is appropriate.
+The Johansen trace test results are presented in Table 5. For the US 
+pair, the trace statistic of 21.90 exceeds the 5% critical value of 
+19.96, confirming cointegration between ESGU and GSPC. This indicates 
+that despite short-run fluctuations, the two US series share a stable 
+long-run equilibrium relationship — consistent with the fact that both 
+track large-cap US equities. For the global pair, the trace statistic 
+of 15.34 falls below the critical value, indicating no cointegration 
+between IWDA and SUWS. This suggests that the global ESG and 
+conventional indices do not share a stable long-run relationship, 
+likely reflecting differences in geographic and sector composition 
+between the two series.
+
+These results determine the modelling approach in Section 5.5. For 
+the US pair, a Vector Error Correction Model (VECM) is estimated to 
+capture both the short-run dynamics and the long-run adjustment back 
+toward equilibrium. For the global pair, a standard VAR model on 
+stationary log returns is appropriate.
 
 ### 5.3 Autocorrelation Analysis
 
@@ -581,15 +604,14 @@ of GARCH modelling.
 We examine the Autocorrelation Function (ACF) and Partial Autocorrelation 
 Function (PACF) for both the log return series and the squared log return 
 series of each index.
-
-```{r acf-returns, echo=FALSE, fig.width=10, fig.height=8, fig.cap="ACF of daily log returns — bars outside the blue bands indicate significant autocorrelation."}
+```{r acf-returns, echo=FALSE, fig.width=7, fig.height=6, fig.align="center", fig.cap="ACF of daily log returns — bars outside the blue bands indicate significant autocorrelation."}
 library(xts)
 
 par(mfrow = c(2, 2), mar = c(4, 4, 3, 1), cex.main = 1.2, cex.axis = 1.1)
-acf(na.omit(as.numeric(log_returns$ESGU)), main = "ACF — ESGU", lag.max = 30)
-acf(na.omit(as.numeric(log_returns$GSPC)), main = "ACF — GSPC", lag.max = 30)
-acf(na.omit(as.numeric(log_returns$IWDA)), main = "ACF — IWDA", lag.max = 30)
-acf(na.omit(as.numeric(log_returns$SUWS)), main = "ACF — SUWS", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$ESGU)), main = "ACF - ESGU", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$GSPC)), main = "ACF - GSPC", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$IWDA)), main = "ACF - IWDA", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$SUWS)), main = "ACF - SUWS", lag.max = 30)
 par(mfrow = c(1, 1))
 ```
 The ACF plots for the log return series confirm that there is no 
@@ -600,14 +622,14 @@ variation, as approximately 1–2 spurious crossings are expected at
 the 95% confidence level across 30 lags. These results are consistent 
 with weak-form market efficiency.
 
-```{r acf-squared, echo=FALSE, fig.width=10, fig.height=8, fig.cap="ACF of squared log returns — significant bars confirm volatility clustering (ARCH effects)."}
+```{r acf-squared, echo=FALSE, fig.width=7, fig.height=6, fig.align="center", fig.cap="ACF of squared log returns — significant bars confirm volatility clustering (ARCH effects)."}
 library(xts)
 
 par(mfrow = c(2, 2), mar = c(4, 4, 3, 1), cex.main = 1.2, cex.axis = 1.1)
-acf(na.omit(as.numeric(log_returns$ESGU))^2, main = "ACF — ESGU Squared", lag.max = 30)
-acf(na.omit(as.numeric(log_returns$GSPC))^2, main = "ACF — GSPC Squared", lag.max = 30)
-acf(na.omit(as.numeric(log_returns$IWDA))^2, main = "ACF — IWDA Squared", lag.max = 30)
-acf(na.omit(as.numeric(log_returns$SUWS))^2, main = "ACF — SUWS Squared", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$ESGU))^2, main = "ACF - ESGU Squared", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$GSPC))^2, main = "ACF - GSPC Squared", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$IWDA))^2, main = "ACF - IWDA Squared", lag.max = 30)
+acf(na.omit(as.numeric(log_returns$SUWS))^2, main = "ACF - SUWS Squared", lag.max = 30)
 par(mfrow = c(1, 1))
 ```
 In contrast, the ACF plots for the squared log returns reveal a 
@@ -684,8 +706,8 @@ extract_coef <- function(fit, name) {
     BIC           = round(ic[2],        4),
     check.names   = FALSE
   )
-  rownames(df) <- NULL    # <-- add this line here
-  df                      # this line was already there
+  rownames(df) <- NULL    
+  df                    
 }
 
 coef_table <- rbind(
@@ -700,8 +722,8 @@ kable(coef_table, booktabs = TRUE, align = "lrrrrrr",
   kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
   column_spec(1, bold = TRUE) |>
   column_spec(5, bold = TRUE) |>
-  footnote(general = "α + β close to 1 indicates high volatility persistence. AIC/BIC are model fit criteria (lower is better).",
-           general_title = "Note: ", footnote_as_chunk = TRUE)
+  footnote(general = "α + β close to 1 indicates high volatility persistence. AIC/BIC are model fit criteria.",
+         general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
 
 The GARCH(1,1) estimates reveal highly consistent volatility dynamics 
@@ -725,7 +747,7 @@ materially alter the volatility structure of equity returns, and that
 both ESG and conventional indices are subject to the same underlying 
 volatility dynamics during the sample period.
 
-```{r garch-vol-plot}
+```{r gar-plot, echo=FALSE, fig.align="center", message=FALSE, warning=FALSE}
 # Extract and plot conditional volatility for all series
 vol_df <- data.frame(
   Date = index(log_returns),
@@ -773,7 +795,7 @@ Where $\Delta r_t$ is the change in the 10-year Treasury yield at time
 $t$, and $\gamma$ captures the direct effect of interest rate changes 
 on conditional volatility.
 
-```{r garch-x-models, include=FALSE, message=FALSE, warning=FALSE}
+```{r garch-x-models, include=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(rugarch)
 library(xts)
 
@@ -809,7 +831,9 @@ garchx_suws <- ugarchfit(spec = garchx_spec, data = suws_r,
                           solver = "hybrid", solver.control = list(trace = 0))
 ```
 
-```{r garch-x-table, echo=FALSE, message=FALSE, warning=FALSE}
+\newpage
+
+```{r garch-x-table, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(knitr)
 library(kableExtra)
 library(rugarch)
@@ -839,20 +863,15 @@ garchx_table <- rbind(
 )
 
 kable(garchx_table, booktabs = TRUE, align = "lrrrrrr",
-      caption = "GARCH-X Parameter Estimates — Including Interest Rate Changes") |>
-  kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
+      col.names = c("Series", "alpha (ARCH)", "beta (GARCH)", "gamma (Rate)", "alpha+beta", "AIC", "BIC"),
+      caption = "GARCH-X Parameter Estimates - Including Interest Rate Changes") |>
+  kable_styling(latex_options = c("striped", "HOLD_position", "scale_down"), font_size = 10) |>
   column_spec(1, bold = TRUE) |>
   column_spec(4, bold = TRUE) |>
-  footnote(general = "γ captures the direct effect of interest rate changes on conditional volatility. A positive γ indicates that rate increases raise volatility.",
+  footnote(general = "gamma (Rate) near zero indicates no direct effect of rate changes on volatility.",
            general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
-```{r check-alignment, include=FALSE}
-cat("Dimensions of rate_x:", dim(rate_x), "\n")
-cat("First few values of rate_x:\n")
-print(head(rate_x))
-cat("Any NAs:", sum(is.na(rate_x)), "\n")
-cat("Any zeros:", sum(rate_x == 0, na.rm = TRUE), "\n")
-```
+
 The GARCH-X estimates reveal that the exogenous interest rate term γ 
 is effectively zero for all four series, indicating that daily changes 
 in the 10-year Treasury yield do not have a direct measurable effect 
@@ -874,9 +893,19 @@ through the return spread and regime analyses.
 
 ### 5.5 VAR and VECM Model
 
-Based on the Johansen cointegration test results in Section 5.2.4, we select the appropriate model for each pair: a VECM if the pair is cointegrated, or a standard VAR if not. In both cases, we then test whether past changes in interest rates help predict future changes in the ESG-conventional performance gap using Granger causality. For the global pair, where significant Granger causality is found, we additionally estimate an Impulse Response Function (IRF) to show how long the effect of a rate shock persists.
+Based on the Johansen cointegration test results in Section 5.2.4, 
+we select a VECM for the US pair (ESGU/GSPC), where cointegration 
+was confirmed, and a standard VAR on log returns for the global pair 
+(IWDA/SUWS), where no cointegration was found. In both cases, we 
+test whether past changes in the 10-year Treasury yield help predict 
+future changes in the ESG-conventional performance gap using Granger 
+causality. For the global pair, where significant Granger causality 
+is found, we additionally estimate an Impulse Response Function (IRF) 
+and Forecast Error Variance Decomposition (FEVD) to quantify how long 
+the effect of a rate shock persists and how much of the spread's 
+variation it explains.
 
-```{r var-model, echo=FALSE, message=FALSE, warning=FALSE}
+```{r var-model, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(vars)
 library(urca)
 library(knitr)
@@ -906,7 +935,7 @@ model_global_type <- ifelse(coint_global, "VECM", "VAR")
 
 # Summary table
 granger_table <- data.frame(
-  Test          = c("Rate → US Spread", "Rate → Global Spread"),
+  Test          = c("Rate -> US Spread", "Rate -> Global Spread"),
   Model         = c(model_us_type, model_global_type),
   `F-statistic` = c(round(granger_us$Granger$statistic,     4),
                      round(granger_global$Granger$statistic, 4)),
@@ -921,12 +950,30 @@ granger_table <- data.frame(
 
 kable(granger_table, booktabs = TRUE, align = "llrrr",
       caption = "Granger Causality Tests — Interest Rate Changes and ESG Spreads") |>
-  kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
+  kable_styling(latex_options = c("striped", "hold_position", "scale_down"), font_size = 10) |>
   column_spec(1, bold = TRUE) |>
   column_spec(5, bold = TRUE) |>
-  footnote(general = "H0: Rate_Change does not Granger-cause the ESG-conventional spread. Model column reflects VECM or VAR selection based on Johansen test results.",
+  footnote(general = "H0: Rate_Change does not Granger-cause the spread. p < 0.05 indicates rejection.",
            general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
+
+The Granger causality results reveal a clear asymmetry between the two 
+market pairs. For the US pair, changes in the 10-year Treasury yield do 
+not significantly Granger-cause the ESGU-GSPC return spread (F = 1.13, 
+p = 0.32), suggesting that the two US indices track each other too 
+closely for rate movements to produce a meaningful differential. This 
+is consistent with the cointegration result — the US pair shares a 
+stable long-run equilibrium, meaning any short-run divergence quickly 
+corrects itself regardless of the rate environment.
+
+For the global pair, however, rate changes significantly Granger-cause 
+the IWDA-SUWS spread (F = 23.39, p < 0.001), indicating that the 
+interest rate environment has meaningful predictive power over the 
+relative performance of ESG and conventional global indices. This 
+finding is consistent with the structural differences between IWDA and 
+SUWS in terms of sector composition and geographic exposure, and 
+provides direct support for H3. The IRF and FEVD below quantify the 
+size and duration of this effect.
 
 ```{r irf-global, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Impulse Response Function — effect of a one standard deviation rate shock on the global ESG-conventional performance gap over 20 days. Shaded area shows 95% bootstrap confidence interval."}
 if (granger_global$Granger$p.value < 0.05) {
@@ -937,15 +984,46 @@ if (granger_global$Granger$p.value < 0.05) {
                     boot     = TRUE,
                     ci       = 0.95)
   plot(irf_global,
-       main = "IRF: Rate Change → Global ESG-Conventional Spread")
+       main = "IRF: Rate Change -> Global ESG-Conventional Spread")
 }
 ```
 
-```{r fevd-global, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Forecast Error Variance Decomposition — proportion of global ESG-conventional spread variance explained by rate changes versus the spread's own history over 20 days."}
+The IRF confirms that a one standard deviation shock to interest rates 
+produces an immediate positive response in the global ESG-conventional 
+spread, peaking within the first two days before decaying back toward 
+zero by approximately day 5. This suggests that while rate shocks do 
+affect the relative performance of global ESG and conventional indices, 
+the effect is short-lived rather than persistent. The 95% bootstrap 
+confidence interval (dashed red lines) excludes zero at the peak, 
+confirming the response is statistically significant. This finding is 
+consistent with the Granger causality result and supports H3: the 
+interest rate environment influences the ESG-conventional performance 
+gap, particularly in the global market context.
+
+```{r fevd-global, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.cap="Forecast Error Variance Decomposition — proportion of global ESG-conventional spread variance explained by rate changes over 20 days."}
 if (granger_global$Granger$p.value < 0.05) {
   fevd_global <- fevd(gc_model_global, n.ahead = 20)
-  plot(fevd_global,
-       main = "FEVD: Global ESG-Conventional Spread")
+  
+  fevd_df <- data.frame(
+    Horizon     = 1:20,
+    Spread      = fevd_global$Spread_Global[, "Spread_Global"],
+    Rate_Change = fevd_global$Spread_Global[, "Rate_Change"]
+  )
+  
+  fevd_long <- reshape2::melt(fevd_df, id.vars = "Horizon",
+                               variable.name = "Source",
+                               value.name = "Proportion")
+  
+  ggplot(fevd_long, aes(x = Horizon, y = Proportion, fill = Source)) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c("Spread" = "#2E4057", "Rate_Change" = "#A8DADC"),
+                      labels = c("Spread" = "Own spread history", 
+                                 "Rate_Change" = "Rate change")) +
+    labs(title = "FEVD: Global ESG-Conventional Spread",
+         x = "Horizon (days)", y = "Proportion of variance",
+         fill = "Source") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
 }
 ```
 
@@ -955,8 +1033,7 @@ market pairs. For the US pair, changes in the 10-year Treasury yield
 do not significantly Granger-cause the ESGU-GSPC return spread 
 (F = 1.13, p = 0.32), suggesting that the two US indices track each 
 other too closely for rate movements to produce a meaningful 
-differential. For the global pair, however, rate changes significantly Granger-cause the IWDA-SUWS spread (F = 23.39, p < 0.001), indicating 
-that the interest rate environment has predictive power over the 
+differential. For the global pair, however, rate changes significantly Granger-cause the IWDA-SUWS spread (F = 23.39, p < 0.001), indicating that the interest rate environment has predictive power over the 
 relative performance of ESG and conventional global indices. This 
 finding is consistent with the structural differences between IWDA 
 and SUWS in terms of sector composition and geographic exposure.
@@ -1004,7 +1081,10 @@ main_table <- rbind(
   series_stats(pre,  "Pre-2022"),
   series_stats(post, "Post-2022")
 )
+```
 
+```{r regime-analysis-returns, echo=FALSE, message=FALSE, warning=FALSE}
+# first kable (Mean Returns and Volatility)
 kable(main_table, booktabs = TRUE, align = "llrr",
       caption = "Regime Analysis — Mean Returns and Volatility by Period") |>
   kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
@@ -1013,13 +1093,15 @@ kable(main_table, booktabs = TRUE, align = "llrr",
   row_spec(4, extra_latex_after = "\\midrule") |>
   footnote(general = "Pre-2022: Jan 2020 to Dec 2021. Post-2022: Jan 2022 to Dec 2024.",
            general_title = "Note: ", footnote_as_chunk = TRUE)
+```
 
-# Spread table
+```{r regime-analysis-spread, echo=FALSE, message=FALSE, warning=FALSE}
+# second kable (ESG vs Conventional Spread)
 kable(spread_table, booktabs = TRUE, align = "lrr",
       caption = "Regime Analysis — ESG vs Conventional Return Spread by Period") |>
   kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
   column_spec(1, bold = TRUE) |>
-  footnote(general = "Spread = ESG index return minus conventional index return. Positive value indicates ESG outperformance.",
+  footnote(general = "Spread = ESG minus conventional return (bps). Positive = ESG outperformance.",
            general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
 
@@ -1073,10 +1155,149 @@ tells a more nuanced story, with a detectable shift in relative
 performance that is broadly consistent with the interest rate 
 hypothesis tested in this paper.
 
-## Discussion
-## Conclusion
-## Generative AI Disclosure Statement
-## References
+## 6. Discussion
+
+The results of this analysis present a nuanced picture of how ESG
+screening interacts with return and volatility dynamics — one that
+differs meaningfully between the US and global market contexts, and
+that shifts across interest rate regimes.
+
+**H1 — Return Behaviour**
+
+The evidence on H1 is mixed. In the US pair, ESGU and GSPC tracked
+each other so closely throughout the full sample period that no
+meaningful return differential emerged in either the pre- or
+post-2022 subperiod. The Granger causality test confirmed this:
+interest rate changes did not Granger-cause the ESGU-GSPC spread
+(F = 1.13, p = 0.32), suggesting the two series behave as near-substitutes.
+This likely reflects the fact that both indices are dominated by the
+same large-cap US technology and growth stocks, making ESG screening
+a relatively marginal factor in determining returns.
+
+The global pair tells a different story. SUWS experienced a sharper
+decline in mean daily returns in the post-2022 period (from 0.079%
+to 0.011%) compared to IWDA, and the spread reversed sign — shifting
+from modest ESG outperformance pre-2022 to conventional outperformance
+post-2022. This partial support for H1 in the global context is
+consistent with the structural growth tilt of ESG indices documented
+by Pastor, Stambaugh and Taylor (2022), whereby rising interest rates
+disproportionately disadvantage growth-oriented assets relative to
+value stocks, which are more commonly found in conventional benchmarks.
+
+**H2 — Volatility Dynamics**
+
+The evidence on H2 is weak. The GARCH(1,1) estimates are strikingly
+similar across all four series: alpha+beta persistence falls within
+the narrow range of 0.963 to 0.969, and both ESG and conventional
+series respond to shocks with comparable speed and duration. The
+GARCH-X robustness check reinforces this conclusion — the gamma
+coefficient on interest rate changes is effectively zero for all
+series, indicating that interest rate movements do not directly
+affect conditional volatility. The volatility clustering documented
+across both regimes is driven by the same underlying market dynamics
+for ESG and conventional indices alike, with no evidence that ESG
+screening materially alters how volatility evolves over time.
+
+This result may seem surprising given the narrative around ESG
+resilience during market stress. However, it is important to
+distinguish between level effects — where ESG indices may produce
+different return levels — and structure effects, where the
+underlying volatility process differs. Our evidence suggests that
+ESG screening affects the former only modestly and the latter
+barely at all.
+
+**H3 — Regime Differences**
+
+H3 receives the clearest support from the data. The global ESG-conventional
+spread underwent a sign reversal around the 2022 rate-hiking threshold,
+shifting from -1.51 basis points to +2.38 basis points. This is
+corroborated by the Granger causality result for the global pair, where
+rate changes significantly predict the IWDA-SUWS spread (F = 23.39,
+p < 0.001), and by the IRF showing that a one standard deviation rate
+shock produces a sustained response in the spread over multiple days.
+Taken together, this evidence supports the hypothesis that the interest
+rate environment is a meaningful driver of the relative performance of
+global ESG and conventional indices.
+
+The absence of a similar pattern in the US pair warrants reflection.
+One interpretation is that the US ESG and conventional indices used
+here are simply too similar in composition — both heavily weighted
+toward the same large-cap technology firms — for any macro factor to
+drive a persistent wedge between them. The global pair, by contrast,
+involves indices with somewhat different geographic and sector
+exposures, allowing the rate environment to manifest as a measurable
+performance differential.
+
+**Broader Implications**
+
+Taken together, the findings suggest that the investment case for ESG
+indices cannot be reduced to a simple outperformance or underperformance
+narrative. Performance differences between ESG and conventional indices
+appear to be context-dependent: they are more pronounced in global
+rather than US markets, during periods of macroeconomic stress rather
+than calm, and for indices with genuinely different sector compositions
+rather than near-identical ones. For investors, this underscores the
+importance of looking beyond the ESG label to understand the underlying
+factor exposures — particularly the growth tilt — that drive performance
+differentials. For researchers, it suggests that the ESG-performance
+relationship is best understood through a multi-regime, multi-market
+lens rather than a single aggregate comparison.
+
+## 7. Conclusion
+
+This paper examined the return and volatility dynamics of ESG-screened
+equity indices relative to conventional benchmarks over the period
+January 2020 to December 2024, with particular attention to whether
+these dynamics changed with the onset of the interest rate hiking cycle
+in 2022.
+
+The analysis produced three main findings. First, with respect to
+return behaviour (H1), ESG and conventional indices tracked each other
+closely in the US market, with no meaningful return differential in
+either regime. In the global market, the ESG index (SUWS)
+underperformed its conventional counterpart (IWDA) more substantially
+in the post-2022 period, providing partial support for H1 in that
+context. Second, regarding volatility dynamics (H2), GARCH(1,1)
+estimates were virtually identical across ESG and conventional series,
+and the GARCH-X extension confirmed that interest rate changes have no
+direct effect on conditional volatility. H2 is not supported by the
+evidence. Third, the regime analysis (H3) revealed a clear sign
+reversal in the global ESG-conventional spread around the 2022
+threshold, supported by statistically significant Granger causality
+from interest rate changes to the global spread. H3 is supported for
+the global pair.
+
+These results carry practical implications for both investors and
+analysts. The observation that ESG volatility dynamics are
+indistinguishable from conventional ones provides some reassurance
+that ESG screening does not introduce additional risk in the
+statistical sense. At the same time, the regime-dependent return
+differential in the global pair cautions against assuming that ESG
+indices are uniformly defensive across all macroeconomic environments.
+Rising rate periods may systematically disadvantage ESG-heavy
+portfolios that carry an implicit growth tilt, consistent with the
+theoretical framework of Pastor, Stambaugh and Taylor (2022).
+
+Future research could extend this analysis by applying asymmetric
+GARCH specifications such as GJR-GARCH or EGARCH, which capture
+differential volatility responses to positive and negative shocks —
+a feature that may be particularly relevant in crisis periods.
+Additionally, expanding the index pairs to include sector-neutral
+ESG indices, or applying the framework to individual stock-level
+data, would allow a cleaner identification of the ESG effect
+independent of sector composition differences.
+
+## 8. Generative AI Disclosure Statement
+
+This project used Claude (Anthropic) as an AI assistant to support
+the analysis and writing process. AI assistance was used to help
+debug R code, interpret statistical output, and refine written
+sections, and assist with the creation of PowerPoint slides. All analytical
+decisions, interpretations, and conclusions were made by the authors. The final
+code and interpretation was assessed and approved by both authors prior to
+submission.
+
+## 9. References
 
 Albuquerque, R., Koskinen, Y., Yang, S. and Zhang, C. (2020) 'Resiliency 
 of environmental and social stocks: An analysis of the exogenous 
