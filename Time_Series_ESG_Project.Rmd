@@ -2,7 +2,9 @@
 title: "ESG vs Conventional Indices: Time Series Analysis"
 author: "Alison Barnard and Anya Low"
 date: "2026"
-output: pdf_document
+output:
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r cover-image, echo=FALSE, out.width="100%"}
@@ -82,17 +84,14 @@ Our central research question is:
 
 We explore this through the following hypotheses:
 
-**H1:** ESG indices exhibit different return behaviour compared to 
+**H1:** ESG indices exhibit different return behaviour compared to
 conventional indices during the 2022–2024 period.
-univariate descriptive
 
-**H2:** ESG indices exhibit different volatility dynamics compared to 
+**H2:** ESG indices exhibit different volatility dynamics compared to
 conventional indices.
-univariate dynamic
 
-**H3:** The relationship between ESG and conventional indices differs 
+**H3:** The relationship between ESG and conventional indices differs
 between the pre-2022 and post-2022 subsamples.
-multivariate
 ---
 ## 4. Data and Methodology
 
@@ -103,6 +102,8 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 ```{r install-packages, eval=FALSE}
 install.packages("quantmod")
+library(quantmod)
+getSymbols("DGS10", src = "FRED", from = start_date, to = end_date)library(quantmod)
 install.packages("zoo")
 install.packages("xts")
 install.packages("ggplot2")
@@ -140,7 +141,14 @@ getSymbols("SUWS.L",  from = start_date, to = end_date, src = "yahoo")
 ```
 
 ```{r pull-rate-data}
-getSymbols("DGS10", src = "FRED", from = start_date, to = end_date)
+tryCatch({
+  getSymbols("DGS10", src = "FRED", from = start_date, to = end_date)
+}, error = function(e) {
+  message("FRED connection failed, loading from saved CSV.")
+  prices_csv <- read.csv("data/prices.csv", row.names = 1)
+  DGS10 <<- xts(prices_csv[, "Rate_10Y", drop = FALSE],
+                order.by = as.Date(rownames(prices_csv)))
+})
 ```
 
 ```{r extract-prices}
@@ -176,7 +184,7 @@ The series are denominated in different currencies and price scales.
 This is expected and does not affect the analysis, as all subsequent 
 calculations are based on log returns rather than price levels.
 
-### 4.2 Data Cleaning and Preparation
+### 4.3 Data Cleaning and Preparation
 
 ```{r merge-and-rename}
 all_data <- merge(esgu, gspc, iwda, suws, rate)
@@ -234,7 +242,7 @@ write.csv(as.data.frame(log_returns), "data/log_returns.csv", row.names = TRUE)
 write.csv(as.data.frame(rate_diff),   "data/rate_diff.csv",   row.names = TRUE)
 ```
 
-### 4.3 Analytical Methods
+### 4.4 Analytical Methods
 
 The analysis follows a structured time series pipeline. First, 
 descriptive analysis is conducted to compare return distributions, 
@@ -513,6 +521,54 @@ knitr::kable(stationarity_summary,
   row_spec(5, extra_latex_after = "\\midrule")
 ```
 
+#### 5.2.4 Cointegration Testing
+
+The Johansen trace test is applied to each ESG-conventional pair to determine whether the price level series are cointegrated — that is, whether they share a stable long-run equilibrium relationship. If cointegration is confirmed, a Vector Error Correction Model (VECM) is used in place of a standard VAR, as it captures both the short-run dynamics and the long-run adjustment back toward equilibrium. If no cointegration is found, a standard VAR on stationary log returns is the appropriate specification.
+
+```{r cointegration-test, echo=FALSE, message=FALSE, warning=FALSE}
+library(urca)
+library(knitr)
+library(kableExtra)
+
+# Johansen trace test on price levels (using aligned all_data)
+us_mat     <- data.frame(ESGU = as.numeric(all_data$ESGU), GSPC = as.numeric(all_data$GSPC))
+global_mat <- data.frame(IWDA = as.numeric(all_data$IWDA), SUWS = as.numeric(all_data$SUWS))
+
+jo_us     <- ca.jo(us_mat,     type = "trace", K = 2, ecdet = "const")
+jo_global <- ca.jo(global_mat, type = "trace", K = 2, ecdet = "const")
+
+# Extract trace statistic and 5% critical value for H0: r = 0 (no cointegration)
+n_us     <- length(jo_us@teststat)
+n_global <- length(jo_global@teststat)
+
+stat_us     <- round(jo_us@teststat[n_us],        4)
+cval_us     <- round(jo_us@cval[n_us, 2],         4)
+stat_global <- round(jo_global@teststat[n_global], 4)
+cval_global <- round(jo_global@cval[n_global, 2],  4)
+
+coint_us     <- stat_us     > cval_us
+coint_global <- stat_global > cval_global
+
+coint_table <- data.frame(
+  Pair                  = c("ESGU / GSPC (US)", "IWDA / SUWS (Global)"),
+  `Trace Statistic`     = c(stat_us,   stat_global),
+  `Critical Value (5%)` = c(cval_us,   cval_global),
+  Result                = c(ifelse(coint_us,     "Cointegrated", "Not cointegrated"),
+                            ifelse(coint_global, "Cointegrated", "Not cointegrated")),
+  check.names = FALSE
+)
+
+kable(coint_table, booktabs = TRUE, align = "lrrr",
+      caption = "Johansen Trace Test — Cointegration Between ESG and Conventional Pairs") |>
+  kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
+  column_spec(1, bold = TRUE) |>
+  column_spec(4, bold = TRUE) |>
+  footnote(general = "H0: no cointegrating relationship. Trace statistic exceeding the 5% critical value indicates cointegration. Model selection in Section 5.5 follows from these results.",
+           general_title = "Note: ", footnote_as_chunk = TRUE)
+```
+
+The Johansen test results determine the modelling approach in Section 5.5. Where cointegration is confirmed, a VECM is estimated to capture the long-run equilibrium between the ESG and conventional price series. Where no cointegration is found, a standard VAR on log returns is appropriate.
+
 ### 5.3 Autocorrelation Analysis
 
 Autocorrelation analysis examines whether past values of a time series 
@@ -574,8 +630,7 @@ volatility changes over time, it does not formally model the statistical
 properties of volatility. To do this we fit a GARCH(1,1) model to the log return
 series of each index. The GARCH(1,1) model captures two well-documented features
 of financial return data: volatility clustering (periods of high volatility tend
-to be followed by further high volatility) and mean reversion (volatility
-$eventually returns to its long-run average).
+to be followed by further high volatility) and mean reversion (volatility eventually returns to its long-run average).
 
 The GARCH(1,1) model is specified as follows:
 
@@ -817,37 +872,42 @@ specification is sufficient to capture the volatility dynamics of
 these series, and that the role of interest rates is better captured 
 through the return spread and regime analyses.
 
-### 5.5 Vector Autoregression (VAR) Model
+### 5.5 VAR and VECM Model
 
-We use a VAR model in this project to ask, do past changes in interest rates help predict future changes in the ESG-conventional performance gap? Or in other words, does adding rate history improve our ability to predict the spread?
+Based on the Johansen cointegration test results in Section 5.2.4, we select the appropriate model for each pair: a VECM if the pair is cointegrated, or a standard VAR if not. In both cases, we then test whether past changes in interest rates help predict future changes in the ESG-conventional performance gap using Granger causality. For the global pair, where significant Granger causality is found, we additionally estimate an Impulse Response Function (IRF) to show how long the effect of a rate shock persists.
 
 ```{r var-model, echo=FALSE, message=FALSE, warning=FALSE}
 library(vars)
+library(urca)
 library(knitr)
 library(kableExtra)
 
-# US pair VAR
-spread_us  <- log_returns$ESGU - log_returns$GSPC
-rate_d     <- rate_diff
-var_us     <- merge(spread_us, rate_d)
-var_us     <- na.omit(var_us)
-colnames(var_us) <- c("Spread_US", "Rate_Change")
-lag_us     <- VARselect(var_us, lag.max = 10, type = "const")$selection["AIC(n)"]
-model_us   <- VAR(var_us, p = lag_us, type = "const")
-granger_us <- causality(model_us, cause = "Rate_Change")
+rate_d <- rate_diff
 
-# Global pair VAR
-spread_global  <- log_returns$IWDA - log_returns$SUWS
-var_global     <- merge(spread_global, rate_d)
-var_global     <- na.omit(var_global)
-colnames(var_global) <- c("Spread_Global", "Rate_Change")
-lag_global     <- VARselect(var_global, lag.max = 10, type = "const")$selection["AIC(n)"]
-model_global   <- VAR(var_global, p = lag_global, type = "const")
-granger_global <- causality(model_global, cause = "Rate_Change")
+# --- US pair ---
+spread_us        <- log_returns$ESGU - log_returns$GSPC
+var_us_data      <- merge(spread_us, rate_d)
+var_us_data      <- na.omit(var_us_data)
+colnames(var_us_data) <- c("Spread_US", "Rate_Change")
+lag_us_gc        <- VARselect(var_us_data, lag.max = 10, type = "const")$selection["AIC(n)"]
+gc_model_us      <- VAR(var_us_data, p = lag_us_gc, type = "const")
+granger_us       <- causality(gc_model_us, cause = "Rate_Change")
+model_us_type    <- ifelse(coint_us, "VECM", "VAR")
+
+# --- Global pair ---
+spread_global    <- log_returns$IWDA - log_returns$SUWS
+var_global_data  <- merge(spread_global, rate_d)
+var_global_data  <- na.omit(var_global_data)
+colnames(var_global_data) <- c("Spread_Global", "Rate_Change")
+lag_global_gc    <- VARselect(var_global_data, lag.max = 10, type = "const")$selection["AIC(n)"]
+gc_model_global  <- VAR(var_global_data, p = lag_global_gc, type = "const")
+granger_global   <- causality(gc_model_global, cause = "Rate_Change")
+model_global_type <- ifelse(coint_global, "VECM", "VAR")
 
 # Summary table
 granger_table <- data.frame(
   Test          = c("Rate → US Spread", "Rate → Global Spread"),
+  Model         = c(model_us_type, model_global_type),
   `F-statistic` = c(round(granger_us$Granger$statistic,     4),
                      round(granger_global$Granger$statistic, 4)),
   `p-value`     = c(round(granger_us$Granger$p.value,     4),
@@ -859,22 +919,43 @@ granger_table <- data.frame(
   check.names = FALSE
 )
 
-kable(granger_table, booktabs = TRUE, align = "lrrr",
+kable(granger_table, booktabs = TRUE, align = "llrrr",
       caption = "Granger Causality Tests — Interest Rate Changes and ESG Spreads") |>
   kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
   column_spec(1, bold = TRUE) |>
-  column_spec(4, bold = TRUE) |>
-  footnote(general = "H0: Rate_Change does not Granger-cause the ESG-conventional spread. Rejection at p < 0.05 indicates predictive power.",
+  column_spec(5, bold = TRUE) |>
+  footnote(general = "H0: Rate_Change does not Granger-cause the ESG-conventional spread. Model column reflects VECM or VAR selection based on Johansen test results.",
            general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
+
+```{r irf-global, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Impulse Response Function — effect of a one standard deviation rate shock on the global ESG-conventional performance gap over 20 days. Shaded area shows 95% bootstrap confidence interval."}
+if (granger_global$Granger$p.value < 0.05) {
+  irf_global <- irf(gc_model_global,
+                    impulse  = "Rate_Change",
+                    response = "Spread_Global",
+                    n.ahead  = 20,
+                    boot     = TRUE,
+                    ci       = 0.95)
+  plot(irf_global,
+       main = "IRF: Rate Change → Global ESG-Conventional Spread")
+}
+```
+
+```{r fevd-global, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Forecast Error Variance Decomposition — proportion of global ESG-conventional spread variance explained by rate changes versus the spread's own history over 20 days."}
+if (granger_global$Granger$p.value < 0.05) {
+  fevd_global <- fevd(gc_model_global, n.ahead = 20)
+  plot(fevd_global,
+       main = "FEVD: Global ESG-Conventional Spread")
+}
+```
+
+The FEVD shows what proportion of the variation in the global ESG-conventional performance gap can be attributed to interest rate shocks versus the spread's own past movements. A rising share explained by rate changes over time would confirm that the interest rate environment is a meaningful driver of the divergence between ESG and conventional global indices.
 The Granger causality results reveal an asymmetry between the two 
 market pairs. For the US pair, changes in the 10-year Treasury yield 
 do not significantly Granger-cause the ESGU-GSPC return spread 
 (F = 1.13, p = 0.32), suggesting that the two US indices track each 
 other too closely for rate movements to produce a meaningful 
-differential. For the global pair, however, rate changes significantly 
-
-Granger-cause the IWDA-SUWS spread (F = 23.39, p < 0.001), indicating 
+differential. For the global pair, however, rate changes significantly Granger-cause the IWDA-SUWS spread (F = 23.39, p < 0.001), indicating 
 that the interest rate environment has predictive power over the 
 relative performance of ESG and conventional global indices. This 
 finding is consistent with the structural differences between IWDA 
@@ -884,10 +965,9 @@ and SUWS in terms of sector composition and geographic exposure.
 
 To examine whether the relationship between ESG and conventional indices 
 changed with the interest rate environment, we split the sample into two 
-subperiods: a pre-hiking period (January 2020 to December 2021) and a 
-post-hiking period (January 2022 to December 2024). We compare mean 
+subperiods: a pre-hiking period (January 2020 to December 2021) and a
+post-hiking period (January 2022 to December 2024). We compare mean
 returns, volatility, and the ESG-conventional spread across both regimes.
-It simply cuts the data in half at January 2022 and compares the basic statistics on either side. Essentially, we are asking, did things change after the Fed started raising rates? 
 
 ```{r regime-analysis, echo=FALSE, message=FALSE, warning=FALSE}
 library(knitr)
