@@ -91,7 +91,7 @@ between the pre-2022 and post-2022 subsamples.
 
 ## 4. Data and Methodology
 
-# 4.1 Data Setup
+### 4.1 Data Setup
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
                       fig.align = "center",
@@ -262,14 +262,16 @@ from January 2020 to December 2024.
 ```{r descriptive-stats, echo=FALSE, fig.align="center"}
 library(moments)
 
+.series <- c("ESGU", "GSPC", "IWDA", "SUWS")
 desc_stats <- data.frame(
-  Series   = c("ESGU", "GSPC", "IWDA", "SUWS"),
-  Mean     = c(0.00050, 0.00046, 0.00046, 0.00038),
-  Std_Dev  = c(0.01343, 0.01326, 0.01052, 0.01159),
-  Skewness = c(-0.806, -0.832, -0.926, -0.656),
-  Kurtosis = c(17.436, 17.780, 13.639, 10.573),
-  Min      = c(-0.1279, -0.1277, -0.0935, -0.1007),
-  Max      = c(0.0925, 0.0897, 0.0805, 0.0773)
+  Series   = .series,
+  Mean     = sapply(.series, function(s) mean(na.omit(as.numeric(log_returns[, s])))),
+  Std_Dev  = sapply(.series, function(s) sd(na.omit(as.numeric(log_returns[, s])))),
+  Skewness = sapply(.series, function(s) skewness(na.omit(as.numeric(log_returns[, s])))),
+  Kurtosis = sapply(.series, function(s) kurtosis(na.omit(as.numeric(log_returns[, s])))),
+  Min      = sapply(.series, function(s) min(na.omit(as.numeric(log_returns[, s])))),
+  Max      = sapply(.series, function(s) max(na.omit(as.numeric(log_returns[, s])))),
+  row.names = NULL
 )
 
 knitr::kable(desc_stats,
@@ -295,7 +297,7 @@ the COVID-19 shock in 2020 and the rate hiking cycle beginning in 2022.
 
 #### 5.1.2 Price Level Visualisation
 
-````{r price-plot, echo=FALSE, fig.align="center"}
+```{r price-plot, echo=FALSE, fig.align="center"}
 library(ggplot2)
 library(reshape2)
 
@@ -324,7 +326,7 @@ ggplot(prices_long, aes(x = Date, y = Price, colour = Series)) +
   labs(title = "Normalised Price Series (Base = 100, January 2020)",
        x = "Date", y = "Indexed Price") +
   theme_minimal()
-````
+```
 
 The normalised price chart shows that all four indices broadly tracked 
 each other over the full sample period, with the US pair (ESGU and GSPC) 
@@ -332,7 +334,7 @@ moving almost identically throughout. The global pair shows slightly more
 divergence, particularly in the post-2022 period where SUWS lagged behind 
 IWDA. All four series experienced a sharp drawdown in early 2020 
 coinciding with the COVID-19 market shock, followed by a strong recovery 
-through 2021, before a period of consolidation and renewed growth from 
+through 2021, before a period of consolidation and renewed growth from
 2023 onwards.
 
 #### 5.1.3 Log Returns Visualisation
@@ -357,7 +359,7 @@ ggplot(returns_long, aes(x = Date, y = Return, colour = Series)) +
        x = "Date", y = "Log Return") +
   theme_minimal()
 ```
-The figure above plots the daily log returns for allfour indices over the full
+The figure above plots the daily log returns for all four indices over the full
 sample period.The most prominent feature is the sharp clustering of large
 positive and negative returns in early 2020, coinciding with the onset of the
 COVID-19 pandemic. Returns during this period reach magnitudes of  approximately
@@ -494,16 +496,19 @@ the rate is already expressed as a percentage.
 
 ```{r stationarity-summary, echo=FALSE, fig.align="center"}
 stationarity_summary <- data.frame(
-  Series = c("ESGU (price)", "GSPC (price)", "IWDA (price)", 
-             "SUWS (price)", "Rate 10Y (level)",
-             "ESGU (returns)", "GSPC (returns)", 
-             "IWDA (returns)", "SUWS (returns)"),
-  DF_Stat = c(-1.606, -1.756, -2.283, -2.194, -3.139,
-              -10.347, -10.422, -9.424, -10.110),
-  P_Value = c(0.745, 0.681, 0.459, 0.496, 0.098,
-              0.010, 0.010, 0.010, 0.010),
-  Stationary = c("No", "No", "No", "No", "No",
-                 "Yes", "Yes", "Yes", "Yes")
+  Series = c(
+    paste0(levels_table$Series[1:4], " (price)"),
+    paste0(levels_table$Series[5],   " (level)"),
+    paste0(head(returns_table$Series, 4), " (returns)")
+  ),
+  DF_Stat    = c(levels_table[["ADF Stat"]],
+                 head(returns_table[["ADF Stat"]], 4)),
+  P_Value    = c(levels_table[["p-value"]],
+                 head(returns_table[["p-value"]], 4)),
+  Stationary = ifelse(
+    c(levels_table[["p-value"]], head(returns_table[["p-value"]], 4)) < 0.05,
+    "Yes", "No"
+  )
 )
 
 knitr::kable(stationarity_summary,
@@ -574,7 +579,7 @@ kable(coint_table, booktabs = TRUE, align = "lrrr",
            general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
 
-The Johansen trace test results are presented in Table 5. For the US 
+The Johansen trace test results are presented in the above table. For the US 
 pair, the trace statistic of 21.90 exceeds the 5% critical value of 
 19.96, confirming cointegration between ESGU and GSPC. This indicates 
 that despite short-run fluctuations, the two US series share a stable 
@@ -1028,15 +1033,6 @@ if (granger_global$Granger$p.value < 0.05) {
 ```
 
 The FEVD shows what proportion of the variation in the global ESG-conventional performance gap can be attributed to interest rate shocks versus the spread's own past movements. A rising share explained by rate changes over time would confirm that the interest rate environment is a meaningful driver of the divergence between ESG and conventional global indices.
-The Granger causality results reveal an asymmetry between the two 
-market pairs. For the US pair, changes in the 10-year Treasury yield 
-do not significantly Granger-cause the ESGU-GSPC return spread 
-(F = 1.13, p = 0.32), suggesting that the two US indices track each 
-other too closely for rate movements to produce a meaningful 
-differential. For the global pair, however, rate changes significantly Granger-cause the IWDA-SUWS spread (F = 23.39, p < 0.001), indicating that the interest rate environment has predictive power over the 
-relative performance of ESG and conventional global indices. This 
-finding is consistent with the structural differences between IWDA 
-and SUWS in terms of sector composition and geographic exposure.
 
 ### 5.6 Regime Analysis: Pre- and Post-2022 Comparison
 
