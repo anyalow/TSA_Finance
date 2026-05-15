@@ -32,10 +32,10 @@ interest rate environment?
 
 This paper investigates the return and volatility dynamics of ESG-screened 
 equity indices relative to conventional benchmarks across two market 
-pairs — one US and one global — over the period January 2020 to December 
+pairs, one US and one global, over the period January 2020 to December 
 2024. We apply a structured time series framework including descriptive 
 analysis, stationarity testing, autocorrelation analysis, GARCH volatility 
-modelling, and regime analysis across pre- and post-2022 subsamples.
+modelling, and regime analysis across pre- and post-2022 sub-samples.
 
 ## 2. Literature Review
 
