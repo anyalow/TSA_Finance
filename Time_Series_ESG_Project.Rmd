@@ -1,7 +1,7 @@
 ---
 title: "ESG vs Conventional Indices: Time Series Analysis"
 author: "Alison Barnard and Anya Low"
-date: "2026"
+date: "22 March 2026"
 output:
   pdf_document:
     latex_engine: xelatex
@@ -14,8 +14,8 @@ knitr::include_graphics("cover.png")
 
 ## 1. Introduction
 
-The concept of ESG investing — incorporating Environmental, Social, and 
-Governance criteria into investment decisions — has grown substantially 
+The concept of ESG investing, incorporating Environmental, Social, and 
+Governance criteria into investment decisions, has grown substantially 
 over the past decade. Between 2020 and 2021, ESG-labelled funds attracted 
 record inflows as institutional and retail investors increasingly 
 prioritised sustainability alongside financial returns. However, the period 
@@ -66,8 +66,8 @@ environment has received comparatively less attention. Pastor, Stambaugh
 and Taylor (2022) show that green stocks are structurally aligned with 
 growth and negatively correlated with value stocks, and that lower 
 expected returns for green assets are consistent with theory. This 
-structural tilt suggests that rising interest rates — which historically 
-favour value over growth — may systematically disadvantage ESG indices 
+structural tilt suggests that rising interest rates, which historically 
+favour value over growth, may systematically disadvantage ESG indices 
 relative to conventional benchmarks, a hypothesis we test empirically 
 in this paper.
 
@@ -130,7 +130,8 @@ start_date <- "2020-01-01"
 end_date   <- "2024-12-31"
 ```
 
-We created the date parameters for data retrieval from the Yahoo website, which can interact with R through "quantmod" package.
+We created the date parameters for data retrieval from the Yahoo website, which
+can interact with R through "quantmod" package.
 
 ```{r pull-equity-data, results='hide'}
 getSymbols("ESGU",    from = start_date, to = end_date, src = "yahoo")
@@ -206,7 +207,7 @@ nrow(all_data)
 ```
 
 Following cleaning, the dataset runs from 2 January 2020 to 31 December 
-2024, comprising 1,304 trading days — consistent with approximately 260 
+2024, comprising 1,304 trading days, consistent with approximately 260 
 trading days per year over five years. No zero or negative prices were 
 identified, confirming data integrity.
 
@@ -287,7 +288,7 @@ knitr::kable(desc_stats,
 ```
 
 All four series exhibit negative skewness, indicating that large 
-negative returns occur more frequently than large positive returns — 
+negative returns occur more frequently than large positive returns,
 a common finding in equity return data. The kurtosis values exceed 3 
 for all series, indicating fat tails relative to the normal distribution. 
 This suggests that extreme return events occur more frequently than a 
@@ -370,7 +371,7 @@ Following the onset of the rate-hiking cycle in early 2022 (dashed vertical
 line), a modest but visible increase in return variability is observed across 
 all series, consistent with heightened macroeconomic uncertainty during this 
 period. Crucially, the four series track each other closely throughout, with 
-no obvious divergence between ESG and conventional indices — suggesting that 
+no obvious divergence between ESG and conventional indices, suggesting that 
 ESG screening does not substantially alter the return dynamics of the 
 underlying market exposure.
 
@@ -535,7 +536,13 @@ level itself throughout the analysis.
 
 #### 5.2.4 Cointegration Testing
 
-The Johansen trace test is applied to each ESG-conventional pair to determine whether the price level series are cointegrated — that is, whether they share a stable long-run equilibrium relationship. If cointegration is confirmed, a Vector Error Correction Model (VECM) is used in place of a standard VAR, as it captures both the short-run dynamics and the long-run adjustment back toward equilibrium. If no cointegration is found, a standard VAR on stationary log returns is the appropriate specification.
+The Johansen trace test is applied to each ESG-conventional pair to determine
+whether the price level series are cointegrated — that is, whether they share a
+stable long-run equilibrium relationship. If cointegration is confirmed, a
+Vector Error Correction Model (VECM) is used in place of a standard VAR, as it
+captures both the short-run dynamics and the long-run adjustment back toward
+equilibrium. If no cointegration is found, a standard VAR on stationary log
+returns is the appropriate specification.
 
 ```{r cointegration-test, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(urca)
@@ -650,14 +657,42 @@ formally captures and quantifies this volatility clustering.
 
 ### 5.4 Volatility Modelling (GARCH)
 
-### 5.4.1 Volatility Modelling (GARCH (1,1))
+Before fitting GARCH models, we test whether the return series exhibit significant autocorrelation in the mean using the Ljung-Box test. If returns are not serially correlated, a constant mean equation is sufficient and no ARMA terms are required.
 
-While rolling volatility provides a useful visual summary of how 
+```{r ljung-box, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+
+series_names <- c("ESGU", "GSPC", "IWDA", "SUWS")
+
+lb_results <- data.frame(
+  Series    = series_names,
+  Statistic = sapply(series_names, function(s) round(Box.test(na.omit(as.numeric(log_returns[, s])), lag = 10, type = "Ljung-Box")$statistic, 4)),
+  p_value   = sapply(series_names, function(s) round(Box.test(na.omit(as.numeric(log_returns[, s])), lag = 10, type = "Ljung-Box")$p.value, 4)),
+  Decision  = sapply(series_names, function(s) ifelse(Box.test(na.omit(as.numeric(log_returns[, s])), lag = 10, type = "Ljung-Box")$p.value > 0.05, "No autocorrelation", "Autocorrelation present"))
+)
+
+kable(lb_results, booktabs = TRUE, align = "lrrr",
+      col.names = c("Series", "LB Statistic", "p-value", "Decision"),
+      caption = "Ljung-Box Test for Serial Correlation in Returns (lag = 10)") |>
+  kable_styling(latex_options = c("striped", "HOLD_position"), font_size = 10) |>
+  column_spec(1, bold = TRUE) |>
+  footnote(general = "H0: no serial correlation. p-value > 0.05 indicates a constant mean equation is appropriate.",
+           general_title = "Note: ", footnote_as_chunk = TRUE)
+```
+
+### 5.4.1 Volatility Modelling (ARMA-GARCH)
+
+While rolling volatility provides a useful visual summary of how
 volatility changes over time, it does not formally model the statistical
-properties of volatility. To do this we fit a GARCH(1,1) model to the log return
-series of each index. The GARCH(1,1) model captures two well-documented features
-of financial return data: volatility clustering (periods of high volatility tend
-to be followed by further high volatility) and mean reversion (volatility eventually returns to its long-run average).
+properties of volatility. Based on the Ljung-Box test results, three of the four
+return series exhibit significant serial correlation, motivating the use of an
+ARMA mean equation alongside the GARCH variance equation. ARMA orders are
+selected via AIC using \texttt{auto.arima} with $d = 0$ (no differencing, as
+returns are stationary). The resulting specifications are ARMA(2,2)-GARCH(1,1)
+for ESGU and GSPC, MA(1)-GARCH(1,1) for IWDA, and GARCH(1,1) with constant mean
+for SUWS. The GARCH(1,1) variance equation captures two well-documented features
+of financial return data: volatility clustering and mean reversion.
 
 The GARCH(1,1) model is specified as follows:
 
@@ -675,19 +710,40 @@ indicates high volatility persistence.
 library(rugarch)
 library(xts)
 
-garch_spec <- ugarchspec(
-  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
-  mean.model     = list(armaOrder = c(0, 0), include.mean = TRUE),
+# ARMA orders selected via auto.arima (d=0) on each return series:
+# ESGU: ARMA(2,2), GSPC: ARMA(2,2), IWDA: ARMA(0,1), SUWS: ARMA(0,0)
+
+spec_esgu <- ugarchspec(
+  variance.model     = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model         = list(armaOrder = c(2, 2), include.mean = TRUE),
   distribution.model = "norm"
 )
 
-garch_esgu <- ugarchfit(spec = garch_spec, data = na.omit(log_returns$ESGU),
+spec_gspc <- ugarchspec(
+  variance.model     = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model         = list(armaOrder = c(2, 2), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+spec_iwda <- ugarchspec(
+  variance.model     = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model         = list(armaOrder = c(0, 1), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+spec_suws <- ugarchspec(
+  variance.model     = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model         = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+garch_esgu <- ugarchfit(spec = spec_esgu, data = na.omit(log_returns$ESGU),
                         solver = "hybrid", solver.control = list(trace = 0))
-garch_gspc <- ugarchfit(spec = garch_spec, data = na.omit(log_returns$GSPC),
+garch_gspc <- ugarchfit(spec = spec_gspc, data = na.omit(log_returns$GSPC),
                         solver = "hybrid", solver.control = list(trace = 0))
-garch_iwda <- ugarchfit(spec = garch_spec, data = na.omit(log_returns$IWDA),
+garch_iwda <- ugarchfit(spec = spec_iwda, data = na.omit(log_returns$IWDA),
                         solver = "hybrid", solver.control = list(trace = 0))
-garch_suws <- ugarchfit(spec = garch_spec, data = na.omit(log_returns$SUWS),
+garch_suws <- ugarchfit(spec = spec_suws, data = na.omit(log_returns$SUWS),
                         solver = "hybrid", solver.control = list(trace = 0))
 ```
 
@@ -723,7 +779,7 @@ coef_table <- rbind(
 )
 
 kable(coef_table, booktabs = TRUE, align = "lrrrrrr",
-      caption = "GARCH(1,1) Parameter Estimates") |>
+      caption = "ARMA-GARCH Parameter Estimates") |>
   kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) |>
   column_spec(1, bold = TRUE) |>
   column_spec(5, bold = TRUE) |>
@@ -731,7 +787,7 @@ kable(coef_table, booktabs = TRUE, align = "lrrrrrr",
          general_title = "Note: ", footnote_as_chunk = TRUE)
 ```
 
-The GARCH(1,1) estimates reveal highly consistent volatility dynamics 
+The ARMA-GARCH estimates reveal highly consistent volatility dynamics
 across all four series. Alpha coefficients range from 0.097 to 0.162, 
 indicating that between 10% and 16% of each period's volatility is 
 driven by the magnitude of the previous period's return shock. Beta 
@@ -1032,7 +1088,11 @@ if (granger_global$Granger$p.value < 0.05) {
 }
 ```
 
-The FEVD shows what proportion of the variation in the global ESG-conventional performance gap can be attributed to interest rate shocks versus the spread's own past movements. A rising share explained by rate changes over time would confirm that the interest rate environment is a meaningful driver of the divergence between ESG and conventional global indices.
+The FEVD shows what proportion of the variation in the global ESG-conventional
+performance gap can be attributed to interest rate shocks versus the spread's
+own past movements. A rising share explained by rate changes over time would
+confirm that the interest rate environment is a meaningful driver of the
+divergence between ESG and conventional global indices.
 
 ### 5.6 Regime Analysis: Pre- and Post-2022 Comparison
 
@@ -1116,7 +1176,7 @@ substantially than its conventional counterpart IWDA.
 Volatility declined in the post-2022 period for all series, which may 
 appear counterintuitive given the macroeconomic uncertainty of the 
 rate-hiking cycle. However, this is largely explained by the inclusion 
-of the COVID-19 market shock in the pre-2022 subsample — the extreme 
+of the COVID-19 market shock in the pre-2022 subsample; the extreme 
 volatility clustering of March 2020 substantially inflates the pre-2022 
 standard deviations. When comparing the two periods with this in mind, 
 the results do not provide strong evidence that ESG indices exhibit 
@@ -1128,20 +1188,18 @@ show similar volatility levels within each regime.
 The spread analysis provides the most directly relevant evidence for 
 H3. In the US pair, the spread between ESGU and GSPC was already 
 negligible in the pre-2022 period (1.0 basis point) and remained so 
-post-2022 (0.13 basis points), confirming that the two US indices 
-track each other extremely closely regardless of the interest rate 
-environment. 
+post-2022 (0.13 basis points), confirming that the two US indices track
+each other extremely closely regardless of the interest rate environment. 
 
-For the global pair, however, a more meaningful pattern emerges. The 
-IWDA-SUWS spread shifted from -1.51 basis points pre-2022 — indicating 
-modest ESG outperformance — to +2.38 basis points post-2022, indicating 
-conventional outperformance. This sign reversal is consistent with H3: 
-the relationship between ESG and conventional indices did change across 
-regimes, with the global ESG index underperforming its conventional 
-counterpart during the rate-hiking period. This finding aligns with the 
-theoretical argument of Pastor, Stambaugh and Taylor (2022) that the 
-structural tilt of ESG indices toward growth stocks may disadvantage 
-them in rising rate environments.
+For the global pair, however, a more meaningful pattern emerges. The IWDA-SUWS
+spread shifted from -1.51 basis points pre-2022, indicating modest ESG
+outperformance, to +2.38 basis points post-2022, indicating conventional
+outperformance. This sign reversal is consistent with H3: the relationship
+between ESG and conventional indices did change across regimes, with the global
+ESG index underperforming its conventional counterpart during the rate-hiking
+period. This finding aligns with the theoretical argument of Pastor, Stambaugh
+and Taylor (2022) that the structural tilt of ESG indices toward growth stocks
+may disadvantage them in rising rate environments.
 
 Overall, the regime analysis provides mixed but informative evidence. 
 The US pair shows no meaningful ESG-conventional divergence in either 
@@ -1182,7 +1240,7 @@ value stocks, which are more commonly found in conventional benchmarks.
 
 **H2 — Volatility Dynamics**
 
-The evidence on H2 is weak. The GARCH(1,1) estimates are strikingly
+The evidence on H2 is weak. The ARMA-GARCH estimates are strikingly
 similar across all four series: alpha+beta persistence falls within
 the narrow range of 0.963 to 0.969, and both ESG and conventional
 series respond to shocks with comparable speed and duration. The
@@ -1274,24 +1332,20 @@ Rising rate periods may systematically disadvantage ESG-heavy
 portfolios that carry an implicit growth tilt, consistent with the
 theoretical framework of Pastor, Stambaugh and Taylor (2022).
 
-Future research could extend this analysis by applying asymmetric
-GARCH specifications such as GJR-GARCH or EGARCH, which capture
-differential volatility responses to positive and negative shocks —
-a feature that may be particularly relevant in crisis periods.
-Additionally, expanding the index pairs to include sector-neutral
-ESG indices, or applying the framework to individual stock-level
-data, would allow a cleaner identification of the ESG effect
-independent of sector composition differences.
+Future research could extend this analysis by applying asymmetric GARCH
+specifications such as GJR-GARCH or EGARCH, which capture differential
+volatility responses to positive and negative shocks a feature that may be
+particularly relevant in crisis periods. Additionally, expanding the index
+pairs to include sector-neutral ESG indices, or applying the framework to
+individual stock-level data, would allow a cleaner identification of the ESG
+effect independent of sector composition differences.
 
 ## 8. Generative AI Disclosure Statement
 
-This project used Claude (Anthropic) as an AI assistant to support
-the analysis and writing process. AI assistance was used to help
-debug R code, interpret statistical output, and refine written
-sections, and assist with the creation of PowerPoint slides. All analytical
-decisions, interpretations, and conclusions were made by the authors. The final
-code and interpretation was assessed and approved by both authors prior to
-submission.
+This project used Claude (Anthropic) as an AI assistant to support the writing
+and coding process. AI assistance was limited to debugging R code, interpreting
+statistical output, and formatting PowerPoint slides. All analytical decisions,
+interpretations, and conclusions remain those of the authors
 
 ## 9. References
 
