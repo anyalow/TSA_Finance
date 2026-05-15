@@ -1,6 +1,6 @@
 ---
 title: "ESG vs Conventional Indices: Time Series Analysis"
-author: "Alison Barnard and Anya Mei-Lin Low"
+author: "Alison Barnard and Anya Low"
 date: "22 March 2026"
 output:
   pdf_document:
