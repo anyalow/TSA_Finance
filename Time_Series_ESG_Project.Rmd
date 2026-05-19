@@ -456,45 +456,13 @@ for use in subsequent modelling steps. For the interest rate series, the
 first difference of the yield level is used rather than log returns, as 
 the rate is already expressed as a percentage.
 
-#### 5.2.3 Summary of Stationarity Results
-
-```{r stationarity-summary, echo=FALSE, fig.align="center"}
-stationarity_summary <- data.frame(
-  Series = c(
-    paste0(levels_table$Series[1:4], " (price)"),
-    paste0(levels_table$Series[5],   " (level)"),
-    paste0(head(returns_table$Series, 4), " (returns)")
-  ),
-  DF_Stat    = c(levels_table[["ADF Stat"]],
-                 head(returns_table[["ADF Stat"]], 4)),
-  P_Value    = c(levels_table[["p-value"]],
-                 head(returns_table[["p-value"]], 4)),
-  Stationary = ifelse(
-    c(levels_table[["p-value"]], head(returns_table[["p-value"]], 4)) < 0.05,
-    "Yes", "No"
-  )
-)
-
-knitr::kable(stationarity_summary,
-             col.names = c("Series", "Dickey-Fuller Statistic", 
-                           "p-value", "Stationary"),
-             caption = "Table 2: ADF Test Results — Price Levels and Log Returns",
-             digits = 3,
-             align = c("l", "r", "r", "c"),
-             booktabs = TRUE) |>
-  kable_styling(latex_options = c("hold_position"),
-                full_width = FALSE) |>
-  row_spec(0, bold = TRUE) |>
-  row_spec(5, extra_latex_after = "\\midrule")
-```
-
-The results confirm a clear pattern: all price level series are 
-non-stationary, while all log return series are stationary. This is 
-the expected finding for financial time series and validates our 
-choice to work with log returns rather than price levels in all 
-subsequent modelling steps. The interest rate series similarly 
-requires first differencing to achieve stationarity, which is why 
-we use the daily change in the 10-year yield rather than the yield 
+The results confirm a clear pattern: all price level series are
+non-stationary, while all log return series are stationary. This is
+the expected finding for financial time series and validates our
+choice to work with log returns rather than price levels in all
+subsequent modelling steps. The interest rate series similarly
+requires first differencing to achieve stationarity, which is why
+we use the daily change in the 10-year yield rather than the yield
 level itself throughout the analysis.
 
 #### 5.2.4 Cointegration Testing
