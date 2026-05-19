@@ -5,7 +5,7 @@ date: "22 March 2026"
 output:
   pdf_document:
     latex_engine: xelatex
-    extra_dependencies: ["float"]
+    extra_dependencies: ["float", "placeins"]
 ---
 
 ```{r cover-image, echo=FALSE, out.width="100%"}
@@ -235,13 +235,13 @@ write.csv(as.data.frame(rate_diff),   "data/rate_diff.csv",   row.names = TRUE)
 ### 4.4 Analytical Methods
 
 The analysis follows a structured time series pipeline. First, 
-descriptive analysis is conducted to compare return distributions, 
-rolling volatility, and drawdowns across ESG and conventional series. 
+descriptive analysis is conducted to compare return distributions
+and drawdowns across ESG and conventional series. 
 Second, Augmented Dickey-Fuller (ADF) tests are applied to confirm 
 stationarity of the transformed series before modelling. Third, 
 autocorrelation (ACF) and partial autocorrelation (PACF) functions are 
-examined to assess dependence structures. Fourth, GARCH(1,1) models are 
-estimated to capture volatility clustering and persistence within each 
+examined to assess dependence structures. Fourth, ARMA-GARCH models are
+estimated to capture volatility clustering and persistence within each
 series. Fifth, a regime analysis compares pre-2022 and post-2022 
 subsamples to evaluate whether return and volatility dynamics changed 
 with the interest rate environment. Finally, a VAR model is used to 
@@ -296,7 +296,7 @@ the COVID-19 shock in 2020 and the rate hiking cycle beginning in 2022.
 
 #### 5.1.2 Price Level Visualisation
 
-```{r price-plot, echo=FALSE, fig.align="center"}
+```{r price-plot, echo=FALSE, fig.align="center", fig.width=5, fig.height=3}
 library(ggplot2)
 library(reshape2)
 
@@ -326,6 +326,7 @@ ggplot(prices_long, aes(x = Date, y = Price, colour = Series)) +
        x = "Date", y = "Indexed Price") +
   theme_minimal()
 ```
+\FloatBarrier
 
 The normalised price chart shows that all four indices broadly tracked 
 each other over the full sample period, with the US pair (ESGU and GSPC) 
@@ -338,7 +339,7 @@ through 2021, before a period of consolidation and renewed growth from
 
 #### 5.1.3 Log Returns Visualisation
 
-```{r returns-plot, echo=FALSE, fig.align="center"}
+```{r returns-plot, echo=FALSE, fig.align="center", fig.width=5, fig.height=3}
 returns_df <- data.frame(
   Date = index(log_returns),
   ESGU = as.numeric(log_returns$ESGU),
@@ -358,6 +359,7 @@ ggplot(returns_long, aes(x = Date, y = Return, colour = Series)) +
        x = "Date", y = "Log Return") +
   theme_minimal()
 ```
+\FloatBarrier
 The figure above plots the daily log returns for all four indices over the full
 sample period.The most prominent feature is the sharp clustering of large
 positive and negative returns in early 2020, coinciding with the onset of the
@@ -373,43 +375,6 @@ no obvious divergence between ESG and conventional indices, suggesting that
 ESG screening does not substantially alter the return dynamics of the 
 underlying market exposure.
 
-#### 5.1.4 Rolling Volatility
-
-Rolling volatility measures how the riskiness of each series changes 
-over time. We compute a 30-day rolling standard deviation of log returns 
-for each series to visualise volatility clustering across the sample period.
-
-```{r rolling-volatility, echo=FALSE, fig.align="center"}
-library(zoo)
-
-roll_vol <- data.frame(
-  Date = index(log_returns),
-  ESGU = rollapply(log_returns$ESGU, width = 30, FUN = sd, fill = NA),
-  GSPC = rollapply(log_returns$GSPC, width = 30, FUN = sd, fill = NA),
-  IWDA = rollapply(log_returns$IWDA, width = 30, FUN = sd, fill = NA),
-  SUWS = rollapply(log_returns$SUWS, width = 30, FUN = sd, fill = NA)
-)
-
-roll_vol_long <- melt(roll_vol, id.vars = "Date",
-                      variable.name = "Series", value.name = "Volatility")
-
-ggplot(roll_vol_long, aes(x = Date, y = Volatility, colour = Series)) +
-  geom_line(alpha = 0.8) +
-  geom_vline(xintercept = as.Date("2022-01-01"), 
-             linetype = "dashed", colour = "black") +
-  annotate("text", x = as.Date("2022-03-01"), y = 0.025, 
-           label = "Rate hiking begins", size = 3, hjust = 0) +
-  labs(title = "30-Day Rolling Volatility of Log Returns",
-       x = "Date", y = "Rolling Std Dev") +
-  theme_minimal()
-```
-
-The rolling volatility chart reveals two clear spikes — the first 
-corresponding to the COVID-19 market shock in March 2020, and the 
-second to the onset of the rate hiking cycle in early 2022. Both 
-ESG and conventional series show similar volatility patterns, though 
-the relative magnitude of these spikes across pairs will be examined 
-more formally in the regime analysis in Section 5.5.
 
 ### 5.2 Stationarity Testing
 
@@ -614,7 +579,7 @@ of GARCH modelling.
 We examine the Autocorrelation Function (ACF) and Partial Autocorrelation 
 Function (PACF) for both the log return series and the squared log return 
 series of each index.
-```{r acf-returns, echo=FALSE, fig.width=7, fig.height=6, fig.align="center", fig.cap="ACF of daily log returns — bars outside the blue bands indicate significant autocorrelation."}
+```{r acf-returns, echo=FALSE, fig.width=6, fig.height=4, fig.align="center", fig.cap="ACF of daily log returns — bars outside the blue bands indicate significant autocorrelation."}
 library(xts)
 
 par(mfrow = c(2, 2), mar = c(4, 4, 3, 1), cex.main = 1.2, cex.axis = 1.1)
@@ -632,7 +597,7 @@ variation, as approximately 1–2 spurious crossings are expected at
 the 95% confidence level across 30 lags. These results are consistent 
 with weak-form market efficiency.
 
-```{r acf-squared, echo=FALSE, fig.width=7, fig.height=6, fig.align="center", fig.cap="ACF of squared log returns — significant bars confirm volatility clustering (ARCH effects)."}
+```{r acf-squared, echo=FALSE, fig.width=6, fig.height=4, fig.align="center", fig.cap="ACF of squared log returns — significant bars confirm volatility clustering (ARCH effects)."}
 library(xts)
 
 par(mfrow = c(2, 2), mar = c(4, 4, 3, 1), cex.main = 1.2, cex.axis = 1.1)
@@ -650,7 +615,7 @@ while the global pair (IWDA and SUWS) shows a similar but slightly
 less persistent pattern. This confirms the presence of strong ARCH 
 effects: large returns in one period are systematically followed by 
 further large returns, regardless of direction. This finding directly 
-motivates the GARCH(1,1) modelling approach in Section 5.4, which 
+motivates the ARMA-GARCH modelling approach in Section 5.4, which
 formally captures and quantifies this volatility clustering.
 
 ### 5.4 Volatility Modelling (GARCH)
@@ -681,8 +646,8 @@ kable(lb_results, booktabs = TRUE, align = "lrrr",
 
 ### 5.4.1 Volatility Modelling (ARMA-GARCH)
 
-While rolling volatility provides a useful visual summary of how
-volatility changes over time, it does not formally model the statistical
+While descriptive analysis provides a useful visual summary of return
+dynamics over time, it does not formally model the statistical
 properties of volatility. Based on the Ljung-Box test results, three of the four
 return series exhibit significant serial correlation, motivating the use of an
 ARMA mean equation alongside the GARCH variance equation. ARMA orders are
@@ -806,7 +771,7 @@ materially alter the volatility structure of equity returns, and that
 both ESG and conventional indices are subject to the same underlying 
 volatility dynamics during the sample period.
 
-```{r gar-plot, echo=FALSE, fig.align="center", message=FALSE, warning=FALSE}
+```{r gar-plot, echo=FALSE, fig.align="center", fig.width=5, fig.height=3, message=FALSE, warning=FALSE}
 # Extract and plot conditional volatility for all series
 vol_df <- data.frame(
   Date = index(log_returns),
@@ -826,21 +791,68 @@ ggplot(vol_long, aes(x = Date, y = Volatility, colour = Series)) +
              linetype = "dashed", colour = "black") +
   annotate("text", x = as.Date("2022-03-01"), y = 0.045,
            label = "Rate hiking begins", size = 3, hjust = 0) +
-  labs(title = "GARCH(1,1) Conditional Volatility",
+  labs(title = "ARMA-GARCH Conditional Volatility",
        x = "Date", y = "Conditional Standard Deviation") +
   theme_minimal()
 ```
+\FloatBarrier
 
-The GARCH(1,1) conditional volatility plot refines the picture provided 
-by the rolling volatility analysis. Unlike rolling volatility which uses 
-a fixed window, GARCH volatility is model-based and reacts dynamically 
+The ARMA-GARCH conditional volatility plot provides a model-based view
+of time-varying risk. Unlike simple descriptive measures, GARCH volatility
+reacts dynamically 
 to new information. The two clear volatility spikes correspond to the 
 COVID-19 market shock in March 2020 and the onset of the rate hiking 
 cycle in early 2022.
 
-### 5.4.2 Volatility Modelling (GARCH-X): Including Interest Rate Changes 
+### 5.4.2 Residual Diagnostics
 
-To extend the baseline GARCH(1,1) analysis, we estimate a GARCH-X 
+To assess whether the ARMA-GARCH models are well-specified, we examine the standardised residuals for evidence of remaining structure. A well-fitted model should produce residuals that are white noise — serially uncorrelated with constant variance.
+
+```{r residual-diagnostics, echo=FALSE, message=FALSE, warning=FALSE, fig.width=7, fig.height=5, fig.align="center", fig.cap="ACF of standardised residuals (top) and squared standardised residuals (bottom) for all four series. Bars within the blue bands indicate no remaining autocorrelation."}
+par(mfrow = c(2, 4), mar = c(4, 4, 3, 1))
+for (s in list(list(garch_esgu, "ESGU"), list(garch_gspc, "GSPC"),
+               list(garch_iwda, "IWDA"), list(garch_suws, "SUWS"))) {
+  resid_std <- residuals(s[[1]], standardize = TRUE)
+  acf(as.numeric(resid_std), main = paste("ACF -", s[[2]]), lag.max = 20)
+}
+for (s in list(list(garch_esgu, "ESGU"), list(garch_gspc, "GSPC"),
+               list(garch_iwda, "IWDA"), list(garch_suws, "SUWS"))) {
+  resid_std <- residuals(s[[1]], standardize = TRUE)
+  acf(as.numeric(resid_std)^2, main = paste("ACF² -", s[[2]]), lag.max = 20)
+}
+par(mfrow = c(1, 1))
+```
+
+```{r residual-ljungbox, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+
+fits   <- list(garch_esgu, garch_gspc, garch_iwda, garch_suws)
+labels <- c("ESGU", "GSPC", "IWDA", "SUWS")
+
+resid_table <- data.frame(
+  Series   = labels,
+  LB_resid = sapply(fits, function(f) round(Box.test(as.numeric(residuals(f, standardize = TRUE)),
+                                                       lag = 10, type = "Ljung-Box")$p.value, 4)),
+  LB_sq    = sapply(fits, function(f) round(Box.test(as.numeric(residuals(f, standardize = TRUE))^2,
+                                                      lag = 10, type = "Ljung-Box")$p.value, 4)),
+  Mean     = sapply(fits, function(f) round(mean(as.numeric(residuals(f, standardize = TRUE))), 4))
+)
+
+kable(resid_table, booktabs = TRUE, align = "lrrr",
+      col.names = c("Series", "LB p-value (residuals)", "LB p-value (residuals²)", "Mean"),
+      caption = "Residual Diagnostics — Ljung-Box Tests on Standardised Residuals") |>
+  kable_styling(latex_options = c("striped", "HOLD_position"), font_size = 10) |>
+  column_spec(1, bold = TRUE) |>
+  footnote(general = "p > 0.05 indicates no remaining serial correlation. Mean near zero indicates no bias.",
+           general_title = "Note: ", footnote_as_chunk = TRUE)
+```
+
+The ACF plots show all bars within the confidence bands for both standardised residuals and squared residuals across all four series — indicating no remaining autocorrelation in the mean equation and no remaining ARCH effects in the variance equation. The Ljung-Box tests confirm this formally, with all p-values above 0.05. Mean residuals are close to zero, indicating no systematic bias. The ARMA-GARCH models are well-specified.
+
+### 5.4.3 Volatility Modelling (ARMA-GARCH-X): Including Interest Rate Changes
+
+To extend the baseline ARMA-GARCH analysis, we estimate an ARMA-GARCH-X
 model which incorporates changes in the 10-year US Treasury yield as 
 an exogenous variable in the variance equation. This allows us to test 
 directly whether interest rate changes have a significant effect on 
@@ -869,28 +881,44 @@ iwda_r <- rate_aligned$IWDA
 suws_r <- rate_aligned$SUWS
 rate_x <- as.matrix(rate_aligned$Rate_10Y)
 
-# GARCH-X specification with external regressor in variance equation
-garchx_spec <- ugarchspec(
-  variance.model = list(
-    model        = "sGARCH",
-    garchOrder   = c(1, 1),
-    external.regressors = rate_x
-  ),
+# ARMA-GARCH-X specifications — series-specific ARMA orders matching baseline
+garchx_spec_esgu <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1),
+                        external.regressors = rate_x),
+  mean.model     = list(armaOrder = c(2, 2), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+garchx_spec_gspc <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1),
+                        external.regressors = rate_x),
+  mean.model     = list(armaOrder = c(2, 2), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+garchx_spec_iwda <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1),
+                        external.regressors = rate_x),
+  mean.model     = list(armaOrder = c(0, 1), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+garchx_spec_suws <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1),
+                        external.regressors = rate_x),
   mean.model     = list(armaOrder = c(0, 0), include.mean = TRUE),
   distribution.model = "norm"
 )
 
-garchx_esgu <- ugarchfit(spec = garchx_spec, data = esgu_r,
+garchx_esgu <- ugarchfit(spec = garchx_spec_esgu, data = esgu_r,
                           solver = "hybrid", solver.control = list(trace = 0))
-garchx_gspc <- ugarchfit(spec = garchx_spec, data = gspc_r,
+garchx_gspc <- ugarchfit(spec = garchx_spec_gspc, data = gspc_r,
                           solver = "hybrid", solver.control = list(trace = 0))
-garchx_iwda <- ugarchfit(spec = garchx_spec, data = iwda_r,
+garchx_iwda <- ugarchfit(spec = garchx_spec_iwda, data = iwda_r,
                           solver = "hybrid", solver.control = list(trace = 0))
-garchx_suws <- ugarchfit(spec = garchx_spec, data = suws_r,
+garchx_suws <- ugarchfit(spec = garchx_spec_suws, data = suws_r,
                           solver = "hybrid", solver.control = list(trace = 0))
 ```
-
-\newpage
 
 ```{r garch-x-table, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 library(knitr)
@@ -941,11 +969,11 @@ with the VAR results in Section 5.5, which showed that rate changes
 Granger-cause the ESG-conventional spread in the global pair but not 
 the US pair.
 
-Comparing the GARCH-X model to the baseline GARCH(1,1), the α and β 
-estimates are virtually unchanged across all series, and the AIC and 
-BIC values are marginally higher in the GARCH-X model — suggesting 
-that adding the interest rate variable does not improve model fit. 
-Together, these results indicate that the standard GARCH(1,1) 
+Comparing the ARMA-GARCH-X model to the baseline ARMA-GARCH, the α and β
+estimates are virtually unchanged across all series, and the AIC and
+BIC values are marginally higher in the ARMA-GARCH-X model — suggesting
+that adding the interest rate variable does not improve model fit.
+Together, these results indicate that the ARMA-GARCH
 specification is sufficient to capture the volatility dynamics of 
 these series, and that the role of interest rates is better captured 
 through the return spread and regime analyses.
@@ -1034,7 +1062,7 @@ SUWS in terms of sector composition and geographic exposure, and
 provides direct support for H3. The IRF and FEVD below quantify the 
 size and duration of this effect.
 
-```{r irf-global, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Impulse Response Function — effect of a one standard deviation rate shock on the global ESG-conventional performance gap over 20 days. Shaded area shows 95% bootstrap confidence interval."}
+```{r irf-global, echo=FALSE, message=FALSE, warning=FALSE, fig.width=5, fig.height=3, fig.cap="Impulse Response Function — effect of a one standard deviation rate shock on the global ESG-conventional performance gap over 20 days. Shaded area shows 95% bootstrap confidence interval."}
 if (granger_global$Granger$p.value < 0.05) {
   irf_global <- irf(gc_model_global,
                     impulse  = "Rate_Change",
@@ -1046,6 +1074,7 @@ if (granger_global$Granger$p.value < 0.05) {
        main = "IRF: Rate Change -> Global ESG-Conventional Spread")
 }
 ```
+\FloatBarrier
 
 The IRF confirms that a one standard deviation shock to interest rates 
 produces an immediate positive response in the global ESG-conventional 
@@ -1058,39 +1087,6 @@ confirming the response is statistically significant. This finding is
 consistent with the Granger causality result and supports H3: the 
 interest rate environment influences the ESG-conventional performance 
 gap, particularly in the global market context.
-
-```{r fevd-global, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.cap="Forecast Error Variance Decomposition — proportion of global ESG-conventional spread variance explained by rate changes over 20 days."}
-if (granger_global$Granger$p.value < 0.05) {
-  fevd_global <- fevd(gc_model_global, n.ahead = 20)
-  
-  fevd_df <- data.frame(
-    Horizon     = 1:20,
-    Spread      = fevd_global$Spread_Global[, "Spread_Global"],
-    Rate_Change = fevd_global$Spread_Global[, "Rate_Change"]
-  )
-  
-  fevd_long <- reshape2::melt(fevd_df, id.vars = "Horizon",
-                               variable.name = "Source",
-                               value.name = "Proportion")
-  
-  ggplot(fevd_long, aes(x = Horizon, y = Proportion, fill = Source)) +
-    geom_bar(stat = "identity") +
-    scale_fill_manual(values = c("Spread" = "#2E4057", "Rate_Change" = "#A8DADC"),
-                      labels = c("Spread" = "Own spread history", 
-                                 "Rate_Change" = "Rate change")) +
-    labs(title = "FEVD: Global ESG-Conventional Spread",
-         x = "Horizon (days)", y = "Proportion of variance",
-         fill = "Source") +
-    theme_minimal() +
-    theme(legend.position = "bottom")
-}
-```
-
-The FEVD shows what proportion of the variation in the global ESG-conventional
-performance gap can be attributed to interest rate shocks versus the spread's
-own past movements. A rising share explained by rate changes over time would
-confirm that the interest rate environment is a meaningful driver of the
-divergence between ESG and conventional global indices.
 
 ### 5.6 Regime Analysis: Pre- and Post-2022 Comparison
 
@@ -1309,7 +1305,7 @@ closely in the US market, with no meaningful return differential in
 either regime. In the global market, the ESG index (SUWS)
 underperformed its conventional counterpart (IWDA) more substantially
 in the post-2022 period, providing partial support for H1 in that
-context. Second, regarding volatility dynamics (H2), GARCH(1,1)
+context. Second, regarding volatility dynamics (H2), ARMA-GARCH
 estimates were virtually identical across ESG and conventional series,
 and the GARCH-X extension confirmed that interest rate changes have no
 direct effect on conditional volatility. H2 is not supported by the
