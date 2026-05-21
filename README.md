@@ -54,7 +54,7 @@ TSA_Finance/
 
 1. Open `Time_Series_ESG_Project.Rmd` in RStudio
 2. On first run, execute the `install-packages` chunk manually
-3. Run all chunks in order — data is pulled via API and saved to `/data`
+3. Run all chunks in order : data is pulled via API and saved to `/data`
 4. On subsequent runs, data loads from the saved CSVs (no internet needed)
 
 ---
