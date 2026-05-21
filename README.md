@@ -1,4 +1,4 @@
-# TSA in Finance — ESG vs Conventional Indices
+# TSA in Finance: ESG vs Conventional Indices
 
 **Authors:** Alison Barnard & Anya Low  
 **Course:** Time Series Analysis in Finance (TSA01)  
