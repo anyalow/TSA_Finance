@@ -61,9 +61,9 @@ TSA_Finance/
 
 ## Branch Structure
 
-- `main` — final merged version
-- `alison` — Alison's working branch (descriptive analysis, regime analysis)
-- `anya` — Anya's working branch (stationarity, GARCH, VAR model)
+- `main` : final merged version
+- `alison` : Alison's working branch (descriptive analysis, regime analysis)
+- `anya` : Anya's working branch (stationarity, GARCH, VAR model)
 
 ---
 
